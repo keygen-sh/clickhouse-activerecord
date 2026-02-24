@@ -331,6 +331,36 @@ RSpec.describe 'Migration', :migrations do
 
             ActiveRecord::Base.connection.clear_index('some', 'idx2')
           end
+
+          it 'dumps multi-column indexes to schema' do
+            require 'clickhouse-activerecord/schema_dumper'
+
+            quietly { migration_context.up(1) }
+
+            schema = StringIO.new
+            ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, schema)
+            schema_string = schema.string
+
+            expect(schema_string).to include('t.index "(int1 * int2, date)"')
+            expect(schema_string).to include('name: "idx"')
+            expect(schema_string).to include('type: "minmax"')
+            expect(schema_string).to include('granularity: 3')
+          end
+
+          it 'dumps single-column expression indexes to schema' do
+            require 'clickhouse-activerecord/schema_dumper'
+
+            quietly { migration_context.up(3) }
+
+            schema = StringIO.new
+            ClickhouseActiverecord::SchemaDumper.dump(ActiveRecord::Base.connection, schema)
+            schema_string = schema.string
+
+            expect(schema_string).to include('t.index "int1 * int2"')
+            expect(schema_string).to include('name: "idx2"')
+            expect(schema_string).to include('type: "set(10)"')
+            expect(schema_string).to include('granularity: 4')
+          end
         end
       end
     end
